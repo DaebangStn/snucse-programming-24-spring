@@ -208,6 +208,7 @@ public class ChessBoard {
 //======================================================Implement below=================================================================//		
 	enum MagicType {MARK, CHECK, CHECKMATE, TERMINATE};
 	public Position white_king, black_king;
+	public boolean white_king_moved, black_king_moved, left_black_rook_moved, right_black_rook_moved, left_white_rook_moved, right_white_rook_moved;
 	private int selX, selY;
 	private boolean check, checkmate, end;
 	public class Position { int x; int y; Position(int x, int y) { this.x = x; this.y = y; } }
@@ -227,12 +228,16 @@ public class ChessBoard {
 		}
 		public void actionPerformed(ActionEvent e) {	// Only modify here
 			if(!status.equals(MagicType.CHECKMATE) && !status.equals(MagicType.TERMINATE)) {
-				if (real_marks[y][x]) {
+				if (isAvailableCastling(selX, selY, x, y)) {
+					performCastling(selX, selY, x, y);
+					proceed_next_turn();
+				} else if (real_marks[y][x]) {
 					Piece t = getIcon(x, y);
+					updateCastlingMark(selX, selY);
 					control_Pos_iff_king(getIcon(selX, selY), new Position(x, y));
 					setIcon(x, y, getIcon(selX, selY));
 					setIcon(selX, selY, new Piece());
-					if(!t.type.equals(PieceType.king)) status = check_status();
+					if (!t.type.equals(PieceType.king)) status = check_status();
 					else status = MagicType.TERMINATE;
 					proceed_next_turn();
 				} else {
@@ -259,6 +264,7 @@ public class ChessBoard {
 		black_king = new Position(0,4);
 		virtual_marks = new boolean[8][8]; real_marks = new boolean[8][8];
 		unmark_all_virtual();
+		unmark_all_real_and_position();
 		turn = PlayerColor.black; opponent = PlayerColor.white;
 		reset_selected(-1, -1);
 		display_msg();
@@ -284,6 +290,140 @@ public class ChessBoard {
 		if(virtual_marks[king.y][king.x]) { return MagicType.CHECK; }
 		return MagicType.MARK;
 	}
+	public boolean isAvailableCastling(int selX, int selY, int x, int y) {
+		if(selX > 7 || selY > 7 || x > 7 || y > 7) return false;
+		if(selX < 0 || selY < 0 || x < 0 || y < 0) return false;
+
+		PieceType selType = getIcon(selX, selY).type;
+		PieceType xType = getIcon(x, y).type;
+		PlayerColor selColor = getIcon(selX, selY).color;
+		PlayerColor xColor = getIcon(x, y).color;
+
+		// color check
+		if(!selColor.equals(turn) || !xColor.equals(turn)) return false;
+
+		int kingX = -1, kingY = -1;
+		int rookX = -1, rookY = -1;
+
+		if (selType.equals(PieceType.king) && xType.equals(PieceType.rook)) {
+			kingX = selX;
+			kingY = selY;
+			rookX = x;
+			rookY = y;
+		} else if (selType.equals(PieceType.rook) && xType.equals(PieceType.king)) {
+			kingX = x;
+			kingY = y;
+			rookX = selX;
+			rookY = selY;
+		} else {
+			return false;
+		}
+		if (kingX != rookX) return false;
+
+		boolean king_moved = true;
+		boolean rook_moved = true;
+		if (selColor.equals(PlayerColor.white)) {
+			king_moved = white_king_moved;
+			if (rookX == 7 && rookY == 0) {
+				rook_moved = left_white_rook_moved;
+			} else if (rookX == 7 && rookY == 7) {
+				rook_moved = right_white_rook_moved;
+			} else {
+				return false;
+			}
+		} else {
+			king_moved = black_king_moved;
+			if (rookX == 0 && rookY == 0) {
+				rook_moved = left_black_rook_moved;
+			} else if (rookX == 0 && rookY == 7) {
+				rook_moved = right_black_rook_moved;
+			} else {
+				return false;
+			}
+		}
+
+		if (king_moved || rook_moved) return false;
+
+		// check if there is any piece between king and rook
+		for (int i = Math.min(kingY, rookY) + 1; i < Math.max(kingY, rookY); i++) {
+			if (!getIcon(kingX, i).type.equals(PieceType.none)) return false;
+		}
+
+		// the king is not on the check
+		if (!status.equals(MagicType.MARK)) return false;
+
+		// check if the king is on the check when it moves to the castling position
+		int checkY = -1;
+		if (rookY == 0) {
+			// queen-side castling, check (kingX, 2)
+			checkY = 2;
+		} else {
+			// king-side castling, check (kingX, 6)
+			checkY = 6;
+		}
+
+		int prevKingX = kingX;
+		int prevKingY = kingY;
+
+		if (turn.equals(PlayerColor.white)) {
+			white_king.x = kingX;
+			white_king.y = checkY;
+		} else {
+			black_king.x = kingX;
+			black_king.y = checkY;
+		}
+
+		if (!check_status().equals(MagicType.MARK)) {
+			if (turn.equals(PlayerColor.white)) {
+				white_king.x = prevKingX;
+				white_king.y = prevKingY;
+			} else {
+				black_king.x = prevKingX;
+				black_king.y = prevKingY;
+			}
+			return false;
+		}
+
+        return true;
+    }
+
+	public void performCastling(int selX, int selY, int x, int y) {
+		int minY = Math.min(selY, y);
+		PlayerColor c = getIcon(selX, selY).color;
+		if (minY == 0) {
+			// queen-side castling
+			setIcon(x, 2, new Piece(c, PieceType.king));
+			setIcon(x, 3, new Piece(c, PieceType.rook));
+		} else {
+			// king-side castling
+			setIcon(x, 6, new Piece(c, PieceType.king));
+			setIcon(x, 5, new Piece(c, PieceType.rook));
+		}
+		setIcon(x, y, new Piece());
+		setIcon(selX, selY, new Piece());
+		if (c.equals(PlayerColor.white)) {
+			white_king_moved = true;
+		} else {
+			black_king_moved = true;
+		}
+	}
+
+	public void updateCastlingMark(int selX, int selY) {
+		if (selX == 0 && selY == 0) {
+			left_black_rook_moved = true;
+		} else if (selX == 0 && selY == 7) {
+			right_black_rook_moved = true;
+		} else if (selX == 7 && selY == 0) {
+			left_white_rook_moved = true;
+		} else if (selX == 7 && selY == 7) {
+			right_white_rook_moved = true;
+		} else if (selX == 0 && selY == 4) {
+			black_king_moved = true;
+		} else if (selX == 7 && selY == 4) {
+			white_king_moved = true;
+		}
+	}
+
 	public void reset_selected(int a, int b) {selX = a; selY = b;}
 	public void mark_Pos_real(Position pos) { real_marks[pos.y][pos.x] = true; }
 	public void mark_Pos_virtual(Position pos) { virtual_marks[pos.y][pos.x] = true; }
@@ -304,7 +444,13 @@ public class ChessBoard {
 			for(int j=0; j<8; j++)
 				unmarkPosition(i, j);
 	}
-	public void unmark_all_real_and_position() { unmark_all_real(); unmark_all_position();}
+	public void unmark_all_real_and_position() { unmark_all_real(); unmark_all_position(); repaint_all();}
+
+	public void repaint_all() {
+		for(int i=0; i<8; i++)
+			for(int j=0; j<8; j++)
+				chessBoardSquares[i][j].repaint();
+	}
 
 	public void switch_turn() {
 		if(turn.equals(PlayerColor.white)) { turn = PlayerColor.black; opponent = PlayerColor.white; }
