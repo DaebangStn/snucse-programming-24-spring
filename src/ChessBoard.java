@@ -216,7 +216,7 @@ public class ChessBoard {
 	public MagicType status;
 	public Piece[][] virtual_board;
 	public boolean[][] real_marks, virtual_marks;
-	public PlayerColor turn, opponent;
+	public PlayerColor turn, opp;
 	public Queue<Position> list, temp_list;
 
 	class ButtonListener implements ActionListener{
@@ -230,24 +230,24 @@ public class ChessBoard {
 			if(!status.equals(MagicType.CHECKMATE) && !status.equals(MagicType.TERMINATE)) {
 				if (isAvailableCastling(selX, selY, x, y)) {
 					performCastling(selX, selY, x, y);
-					proceed_next_turn();
+					procNext();
 				} else if (real_marks[y][x]) {
 					Piece t = getIcon(x, y);
 					updateCastlingMark(selX, selY);
 					updateEnp(selX, selY, x, y);
-					control_Pos_iff_king(getIcon(selX, selY), new Position(x, y));
+					ctrlKingPos(getIcon(selX, selY), new Position(x, y));
 					setIcon(x, y, getIcon(selX, selY));
 					setIcon(selX, selY, new Piece());
-					if (!t.type.equals(PieceType.king)) status = check_status();
+					if (!t.type.equals(PieceType.king)) status = checkStat();
 					else status = MagicType.TERMINATE;
-					proceed_next_turn();
+					procNext();
 				} else {
-					unmark_all_real_and_position();
-					reset_selected(-1, -1);
+					unmarkAll();
+					rstSel(-1, -1);
 					if(getIcon(x, y).color.equals(turn)) {
-						reset_selected(x, y);
-						enqueue_list(chessBoardStatus, x, y);
-						mark_from_list();
+						rstSel(x, y);
+						enqLst(chessBoardStatus, x, y);
+						markLst();
 					}
 				}
 			}
@@ -264,26 +264,26 @@ public class ChessBoard {
 		white_king = new Position(7,4);
 		black_king = new Position(0,4);
 		virtual_marks = new boolean[8][8]; real_marks = new boolean[8][8];
-		unmark_all_virtual();
-		unmark_all_real_and_position();
-		turn = PlayerColor.black; opponent = PlayerColor.white;
-		reset_selected(-1, -1);
-		display_msg();
+		unmarkVrt();
+		unmarkAll();
+		turn = PlayerColor.black; opp = PlayerColor.white;
+		rstSel(-1, -1);
+		printMsg();
 	}
 	
-	public MagicType is_opponent_check() {
+	public MagicType isOppCheck() {
 		Position king; // position of king
-		unmark_all_virtual();
-		if(opponent.equals(PlayerColor.black)) { king = new Position(black_king.x, black_king.y); }
+		unmarkVrt();
+		if(opp.equals(PlayerColor.black)) { king = new Position(black_king.x, black_king.y); }
 		else {  king = new Position(white_king.x, white_king.y); }
 		for(int i=0; i<8; i++) {
 			for(int j=0; j<8; j++) {
 				if(turn.equals(virtual_board[j][i].color)) {
-					enqueue_list(virtual_board, i, j);
+					enqLst(virtual_board, i, j);
 					while(!list.isEmpty()) {
 						Position element = list.peek();
 						list.remove();
-						mark_Pos_virtual(element);
+						markVrt(element);
 					}
 				}
 			}
@@ -374,7 +374,7 @@ public class ChessBoard {
 			black_king.y = checkY;
 		}
 
-		if (!check_status().equals(MagicType.MARK)) {
+		if (!checkStat().equals(MagicType.MARK)) {
 			if (turn.equals(PlayerColor.white)) {
 				white_king.x = prevKingX;
 				white_king.y = prevKingY;
@@ -445,51 +445,51 @@ public class ChessBoard {
 		}
 	}
 
-	public void reset_selected(int a, int b) {selX = a; selY = b;}
-	public void mark_Pos_real(Position pos) { real_marks[pos.y][pos.x] = true; }
-	public void mark_Pos_virtual(Position pos) { virtual_marks[pos.y][pos.x] = true; }
-	public void unmark_Pos_real(Position pos) { real_marks[pos.y][pos.x] = false; }
-	public void unmark_Pos_virtual(Position pos) { virtual_marks[pos.y][pos.x] = false; }
+	public void rstSel(int a, int b) {selX = a; selY = b;}
+	public void markReal(Position pos) { real_marks[pos.y][pos.x] = true; }
+	public void markVrt(Position pos) { virtual_marks[pos.y][pos.x] = true; }
+	public void unmarkReal(Position pos) { real_marks[pos.y][pos.x] = false; }
+	public void unmarkVrt(Position pos) { virtual_marks[pos.y][pos.x] = false; }
 
-	public void unmark_all_virtual() {
+	public void unmarkVrt() {
 		for(int i=0; i<8; i++)
 			for(int j=0; j<8; j++)
-				unmark_Pos_virtual(new Position(i, j));
+				unmarkVrt(new Position(i, j));
 	}
 
-	public void unmark_all_real() {
+	public void unmarkReal() {
 		for(int i=0; i<8; i++)
 			for(int j=0; j<8; j++)
-				unmark_Pos_real(new Position(i, j));
+				unmarkReal(new Position(i, j));
 	}
 
-	public void unmark_all_position() {
+	public void unmarkAllPos() {
 		for(int i=0; i<8; i++)
 			for(int j=0; j<8; j++)
 				unmarkPosition(i, j);
 	}
-	public void unmark_all_real_and_position() { unmark_all_real(); unmark_all_position(); repaint_all();}
+	public void unmarkAll() { unmarkReal(); unmarkAllPos(); repaintAll();}
 
-	public void repaint_all() {
+	public void repaintAll() {
 		for(int i=0; i<8; i++)
 			for(int j=0; j<8; j++)
 				chessBoardSquares[i][j].repaint();
 	}
 
-	public void switch_turn() {
-		if(turn.equals(PlayerColor.white)) { turn = PlayerColor.black; opponent = PlayerColor.white; }
-		else { turn = PlayerColor.white; opponent = PlayerColor.black; }
+	public void switchTurn() {
+		if(turn.equals(PlayerColor.white)) { turn = PlayerColor.black; opp = PlayerColor.white; }
+		else { turn = PlayerColor.white; opp = PlayerColor.black; }
 	}
 
-	public void proceed_next_turn() {
-		unmark_all_real_and_position();
-		reset_selected(-1, -1);
-		promote_pawn();
-		switch_turn();
-		display_msg();
+	public void procNext() {
+		unmarkAll();
+		rstSel(-1, -1);
+		pawnPromo();
+		switchTurn();
+		printMsg();
 	}
 
-	public void promote_pawn() {
+	public void pawnPromo() {
 		for(int i=0; i<8; i++) {
 			if(chessBoardStatus[i][7].type.equals(PieceType.pawn) && chessBoardStatus[i][7].color.equals(PlayerColor.black)) {
 				setIcon(7, i, new Piece(PlayerColor.black, PieceType.queen));
@@ -500,7 +500,7 @@ public class ChessBoard {
 		}
 	}
 
-	public void enqueue_list(Piece[][] board, int x, int y) {
+	public void enqLst(Piece[][] board, int x, int y) {
 		switch(board[y][x].type) {
 			case rook:
 				enqueue_rook(board, x, y); break;
@@ -675,7 +675,7 @@ public class ChessBoard {
 		else return true;
 	}
 
-	public void display_msg() {
+	public void printMsg() {
 		if(turn.equals(PlayerColor.white)) {
 			if(status.equals(MagicType.MARK)) setStatus("WHITE's TURN");
 			else if(status.equals(MagicType.CHECK)) setStatus("WHITE's TURN/CHECK");
@@ -689,12 +689,12 @@ public class ChessBoard {
 		}
 	}
 
-	public void mark_from_list() {
+	public void markLst() {
 		while (!list.isEmpty()) {
 			Position element = list.peek();
 			list.remove();
 			markPosition(element.x, element.y);
-			mark_Pos_real(element);
+			markReal(element);
 		}
 	}
 
@@ -705,36 +705,36 @@ public class ChessBoard {
 		}
 	}
 
-	public void control_Pos_iff_king(Piece piece, Position target) {
+	public void ctrlKingPos(Piece piece, Position target) {
 		if(piece.type.equals(PieceType.king) && piece.color.equals(PlayerColor.black)) { black_king.x = target.x; black_king.y = target.y; }
 		else if(piece.type.equals(PieceType.king) && piece.color.equals(PlayerColor.white)) { white_king.x = target.x; white_king.y = target.y; }
 	}
 
-	public MagicType check_status() {
+	public MagicType checkStat() {
 		for(int i=0; i<8; i++)
 			for(int j=0;j<8; j++)
 				virtual_board[j][i] = getIcon(i, j);
-		if(!is_opponent_check().equals(MagicType.CHECK)) return MagicType.MARK;
+		if(!isOppCheck().equals(MagicType.CHECK)) return MagicType.MARK;
 		else {
-			unmark_all_virtual();
+			unmarkVrt();
 			boolean is_checkmate = true;
 			for(int i=0; i<8; i++) {
 				for(int j=0; j<8; j++) {
-					if(opponent.equals(virtual_board[j][i].color)) {
-						enqueue_list(virtual_board, i, j);
+					if(opp.equals(virtual_board[j][i].color)) {
+						enqLst(virtual_board, i, j);
 						list2temp_list();
 						while(!temp_list.isEmpty()) {
 							Position element = temp_list.peek();
 							temp_list.remove();
 							Position pos = new Position(i, j);
 							Piece t1 = virtual_board[pos.y][pos.x]; Piece t2 = virtual_board[element.y][element.x];
-							control_Pos_iff_king(t1, element);
+							ctrlKingPos(t1, element);
 							virtual_board[element.y][element.x] = t1;
 							virtual_board[pos.y][pos.x] = new Piece();
-							if(is_opponent_check().equals(MagicType.MARK)) is_checkmate = false;
+							if(isOppCheck().equals(MagicType.MARK)) is_checkmate = false;
 							virtual_board[pos.y][pos.x] = t1;
 							virtual_board[element.y][element.x] = t2;
-							control_Pos_iff_king(t1, pos);
+							ctrlKingPos(t1, pos);
 						}
 					}
 				}
