@@ -1,3 +1,5 @@
+// 2017-12147, 기계공학부, 임건호
+
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
