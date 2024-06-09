@@ -210,7 +210,7 @@ public class ChessBoard {
 	public Position white_king, black_king;
 	public boolean white_king_moved, black_king_moved, left_black_rook_moved, right_black_rook_moved, left_white_rook_moved, right_white_rook_moved;
 	private int selX, selY;
-	private boolean check, checkmate, end;
+	private int enp_possible;
 	public class Position { int x; int y; Position(int x, int y) { this.x = x; this.y = y; } }
 
 	public MagicType status;
@@ -234,6 +234,7 @@ public class ChessBoard {
 				} else if (real_marks[y][x]) {
 					Piece t = getIcon(x, y);
 					updateCastlingMark(selX, selY);
+					updateEnp(selX, selY, x, y);
 					control_Pos_iff_king(getIcon(selX, selY), new Position(x, y));
 					setIcon(x, y, getIcon(selX, selY));
 					setIcon(selX, selY, new Piece());
@@ -424,21 +425,44 @@ public class ChessBoard {
 		}
 	}
 
+	public void updateEnp(int selX, int selY, int x, int y) {
+		// check if en passant is done
+		if (getIcon(selX, selY).type.equals(PieceType.pawn) && Math.abs(selY - y) == 1) {
+			if (getIcon(x, y).type.equals(PieceType.none)) {
+				setIcon(selX, y, new Piece());
+			}
+		}
+
+		// en passant possibility
+		if (getIcon(selX, selY).type.equals(PieceType.pawn) && Math.abs(selX - x) == 2) {
+			if (turn.equals(PlayerColor.white)) {
+				enp_possible = y + 8;
+			} else {
+				enp_possible = y;
+			}
+		} else {
+			enp_possible = -1;
+		}
+	}
+
 	public void reset_selected(int a, int b) {selX = a; selY = b;}
 	public void mark_Pos_real(Position pos) { real_marks[pos.y][pos.x] = true; }
 	public void mark_Pos_virtual(Position pos) { virtual_marks[pos.y][pos.x] = true; }
 	public void unmark_Pos_real(Position pos) { real_marks[pos.y][pos.x] = false; }
 	public void unmark_Pos_virtual(Position pos) { virtual_marks[pos.y][pos.x] = false; }
+
 	public void unmark_all_virtual() {
 		for(int i=0; i<8; i++)
 			for(int j=0; j<8; j++)
 				unmark_Pos_virtual(new Position(i, j));
 	}
+
 	public void unmark_all_real() {
 		for(int i=0; i<8; i++)
 			for(int j=0; j<8; j++)
 				unmark_Pos_real(new Position(i, j));
 	}
+
 	public void unmark_all_position() {
 		for(int i=0; i<8; i++)
 			for(int j=0; j<8; j++)
@@ -456,6 +480,7 @@ public class ChessBoard {
 		if(turn.equals(PlayerColor.white)) { turn = PlayerColor.black; opponent = PlayerColor.white; }
 		else { turn = PlayerColor.white; opponent = PlayerColor.black; }
 	}
+
 	public void proceed_next_turn() {
 		unmark_all_real_and_position();
 		reset_selected(-1, -1);
@@ -473,7 +498,6 @@ public class ChessBoard {
 				setIcon(0, i, new Piece(PlayerColor.white, PieceType.queen));
 			}
 		}
-
 	}
 
 	public void enqueue_list(Piece[][] board, int x, int y) {
@@ -493,6 +517,7 @@ public class ChessBoard {
 							list.add(new Position(i, j));
 				break;
 			case pawn:
+				// move forward 2 steps
 				if(x==6 && board[y][x].color.equals(PlayerColor.white)) {
 					if(board[y][x-2].type.equals(PieceType.none) && board[y][x-1].type.equals(PieceType.none))
 						list.add(new Position(x-2, y));
@@ -501,7 +526,7 @@ public class ChessBoard {
 					if(board[y][x+2].type.equals(PieceType.none) && board[y][x+1].type.equals(PieceType.none))
 						list.add(new Position(x+2, y));
 				}
-				////////////////////// 2칸 앞으로 특수규칙 종료 ///////////////
+				// move forward 1 step
 				if(board[y][x].color.equals(PlayerColor.white)) {
 					if(x!=0) {
 						if(board[y][x-1].type.equals(PieceType.none))
@@ -520,6 +545,27 @@ public class ChessBoard {
 							list.add(new Position(x + 1, y - 1));
 						if (y < 7 && board[y + 1][x + 1].color.equals(PlayerColor.white))
 							list.add(new Position(x + 1, y + 1));
+					}
+				}
+				// en passant
+				int enp_temp = -1;
+				if (enp_possible > 7) {
+					enp_temp = enp_possible - 8;
+				} else {
+					enp_temp = enp_possible;
+				}
+				if((enp_possible != -1) && (board[enp_temp][x].type.equals(PieceType.pawn))) {
+					if(board[y][x].color.equals(PlayerColor.white) && (enp_possible < 8)) {
+						if(x==3 && ((enp_temp == y-1) || (enp_temp == y+1))) {
+							if (board[enp_temp][x-1].type.equals(PieceType.none))
+								list.add(new Position(x-1, enp_temp));
+						}
+					}
+					else if(board[y][x].color.equals(PlayerColor.black) && (enp_possible > 7)) {
+						if(x==4 && ((enp_temp == y-1) || (enp_temp == y+1))) {
+							if (board[enp_temp][x+1].type.equals(PieceType.none))
+								list.add(new Position(x+1, enp_temp));
+						}
 					}
 				}
 				break;
@@ -544,6 +590,7 @@ public class ChessBoard {
 				break;
 		}
 	}
+
 	public void enqueue_rook(Piece[][] board, int x, int y) {
 		int i, j; PlayerColor origin_color = board[y][x].color;
 		i=x+1;
@@ -575,6 +622,7 @@ public class ChessBoard {
 			j--;
 		}
 	}
+
 	public void enqueue_bishop(Piece[][] board, int x, int y) {
 		int i, j; PlayerColor origin_color = board[y][x].color;
 		i=x+1; j=y+1;
@@ -615,15 +663,18 @@ public class ChessBoard {
 		if(color.equals(origin_color)) flag = false;
 		return flag;
 	}
+
 	public boolean is_valid_place_for_knight(int x, int y, Piece[][] board, PlayerColor origin_color) {
 		if(is_valid_place_for_others(x, y) && !(origin_color.equals(board[y][x].color))) return true;
 		else return false;
 	}
+
 	public boolean is_valid_place_for_others(int x, int y) {
 		if(x<0 || x>7) return false;
 		else if(y<0 || y>7) return false;
 		else return true;
 	}
+
 	public void display_msg() {
 		if(turn.equals(PlayerColor.white)) {
 			if(status.equals(MagicType.MARK)) setStatus("WHITE's TURN");
@@ -637,6 +688,7 @@ public class ChessBoard {
 			else setStatus("WHITE WINS");
 		}
 	}
+
 	public void mark_from_list() {
 		while (!list.isEmpty()) {
 			Position element = list.peek();
@@ -645,6 +697,7 @@ public class ChessBoard {
 			mark_Pos_real(element);
 		}
 	}
+
 	public void list2temp_list() {
 		while(!list.isEmpty()) {
 			temp_list.add(list.peek());
@@ -690,5 +743,4 @@ public class ChessBoard {
 			else return MagicType.CHECK;
 		}
 	}
-
 }
