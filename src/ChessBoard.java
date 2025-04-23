@@ -268,7 +268,7 @@ public class ChessBoard {
 		virtual_marks = new boolean[8][8]; real_marks = new boolean[8][8];
 		unmarkVrt();
 		unmarkAll();
-		turn = PlayerColor.black; opp = PlayerColor.white;
+		turn = PlayerColor.white; opp = PlayerColor.black;
 		rstSel(-1, -1);
 		printMsg();
 	}
